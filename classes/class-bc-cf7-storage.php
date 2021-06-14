@@ -46,8 +46,10 @@ if(!class_exists('BC_CF7_Storage')){
             $this->file = $file;
             add_action('init', [$this, 'init']);
             add_action('wpcf7_mail_sent', [$this, 'wpcf7_mail_sent']);
+            add_filter('bc_cf7_redirect_hidden_fields', [$this, 'bc_cf7_redirect_hidden_fields']);
             add_filter('do_shortcode_tag', [$this, 'do_shortcode_tag'], 10, 4);
             add_filter('shortcode_atts_wpcf7', [$this, 'shortcode_atts_wpcf7'], 10, 3);
+            add_filter('wpcf7_form_hidden_fields', [$this, 'wpcf7_form_hidden_fields']);
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,6 +125,25 @@ if(!class_exists('BC_CF7_Storage')){
     	//
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        public function bc_cf7_redirect_hidden_fields($hidden_fields){
+            $contact_form = wpcf7_get_current_contact_form();
+            if($contact_form !== null){
+                $post_id = $contact_form->shortcode_attr('bc_post_id');
+                if(null !== $post_id){
+                    $post_id = $this->sanitize_post_id($post_id);
+                    if(0 !== $post_id){
+                        $uniqid = get_post_meta($post_id, 'bc_uniqid', true);
+    					if($uniqid){
+    						$hidden_fields['bc_uniqid'] = $uniqid;
+    					}
+                    }
+                }
+            }
+            return $hidden_fields;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
         public function do_shortcode_tag($output, $tag, $attr, $m){
 			if('contact-form-7' !== $tag){
                 return $output;
@@ -137,7 +158,7 @@ if(!class_exists('BC_CF7_Storage')){
             }
             $post_id = $this->sanitize_post_id($post_id);
             if(0 === $post_id){
-                return __('Invalid post ID.');
+                return '<div class="alert alert-danger" role="alert">' . __('Invalid post ID.') . '</div>';
             }
             if(!current_user_can('edit_post', $post_id)){
                 if('post' === get_post_type($post_id)){
@@ -146,10 +167,10 @@ if(!class_exists('BC_CF7_Storage')){
                     $message = __('Sorry, you are not allowed to edit this item.');
                 }
                 $message .=  ' ' . __('You need a higher level of permission.');
-				return $message;
+                return '<div class="alert alert-danger" role="alert">' . $message . '</div>';
 			} else {
 				if('trash' === get_post_status($post_id)){
-					return __('You can&#8217;t edit this item because it is in the Trash. Please restore it and try again.');
+                    return '<div class="alert alert-danger" role="alert">' . __('You can&#8217;t edit this item because it is in the Trash. Please restore it and try again.') . '</div>';
 				}
 			}
             if(isset($_GET['bc_referer'])){
@@ -196,8 +217,11 @@ if(!class_exists('BC_CF7_Storage')){
             if($contact_form !== null){
                 $post_id = $contact_form->shortcode_attr('bc_post_id');
                 if(null !== $post_id){
-                    $hidden_fields['bc_nonce'] = wp_create_nonce('bc_edit_post-' . $post_id);
-                    $hidden_fields['bc_post_id'] = $post_id;
+                    $post_id = $this->sanitize_post_id($post_id);
+                    if(0 !== $post_id){
+                        $hidden_fields['bc_nonce'] = wp_create_nonce('bc_edit_post-' . $post_id);
+                        $hidden_fields['bc_post_id'] = $post_id;
+                    }
                 }
             }
             return $hidden_fields;
@@ -218,6 +242,7 @@ if(!class_exists('BC_CF7_Storage')){
                 return;
             }
             $post_id = $submission->get_posted_data('bc_post_id');
+            $update = false;
 			if(null !== $post_id){
                 $nonce = $submission->get_posted_data('bc_nonce');
                 if(null === $nonce){
@@ -228,6 +253,7 @@ if(!class_exists('BC_CF7_Storage')){
                     $submission->set_status('aborted');
                     return;
                 }
+                $update = true;
             } else {
                 $post_id = wp_insert_post([
 					'post_status' => 'private',
@@ -262,7 +288,15 @@ if(!class_exists('BC_CF7_Storage')){
             foreach($posted_data as $key => $value){
 				update_post_meta($post_id, $key, $value);
 			}
-            // do something
+            $uploaded_files = $submission->uploaded_files();
+            if($uploaded_files){
+				// do something
+			}
+            if($update){
+				do_action('bc_cf7_insert_post', $post_id);
+			} else {
+				do_action('bc_cf7_update_post', $post_id);
+			}
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
