@@ -225,6 +225,7 @@ if(!class_exists('BC_CF7_Storage')){
                     }
                 }
             }
+            $hidden_fields = apply_filters('bc_cf7_storage_hidden_fields', $hidden_fields);
             return $hidden_fields;
         }
 
