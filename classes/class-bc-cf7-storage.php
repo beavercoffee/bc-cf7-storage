@@ -50,6 +50,7 @@ if(!class_exists('BC_CF7_Storage')){
             add_filter('do_shortcode_tag', [$this, 'do_shortcode_tag'], 10, 4);
             add_filter('shortcode_atts_wpcf7', [$this, 'shortcode_atts_wpcf7'], 10, 3);
             add_filter('wpcf7_form_hidden_fields', [$this, 'wpcf7_form_hidden_fields']);
+            add_filter('wpcf7_verify_nonce', 'is_user_logged_in');
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
