@@ -288,7 +288,14 @@ if(!class_exists('BC_CF7_Storage')){
     			}
             }
             foreach($posted_data as $key => $value){
-				update_post_meta($post_id, $key, $value);
+                if(is_array($value)){
+					delete_post_meta($post_id, $key);
+					foreach($value as $single){
+						add_post_meta($post_id, $key, $single);
+					}
+				} else {
+					update_post_meta($post_id, $key, $value);
+				}
 			}
             $uploaded_files = $submission->uploaded_files();
             if($uploaded_files){
