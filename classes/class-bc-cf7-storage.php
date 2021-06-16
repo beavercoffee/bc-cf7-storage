@@ -56,6 +56,20 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    	private function copy($source = '', $destination = '', $overwrite = false, $mode = false){
+            global $wp_filesystem;
+            $fs = $this->filesystem();
+            if(is_wp_error($fs)){
+                return $fs;
+            }
+            if(!$wp_filesystem->copy($source, $destination, $overwrite)){
+                return new WP_Error('files_not_writable', sprintf(__('The uploaded file could not be moved to %s.'), $destination));
+            }
+            return $destination;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     	private function filesystem(){
             global $wp_filesystem;
             if($wp_filesystem instanceof WP_Filesystem_Direct){
@@ -71,20 +85,6 @@ if(!class_exists('BC_CF7_Storage')){
                 return new WP_Error('fs_error', __('Filesystem error.'));
             }
             return true;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    	private function move($source = '', $destination = '', $overwrite = false){
-            global $wp_filesystem;
-            $fs = $this->filesystem();
-            if(is_wp_error($fs)){
-                return $fs;
-            }
-            if(!$wp_filesystem->move($source, $destination, $overwrite)){
-                return new WP_Error('files_not_writable', sprintf(__('The uploaded file could not be moved to %s.'), $destination));
-            }
-            return $destination;
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -162,7 +162,7 @@ if(!class_exists('BC_CF7_Storage')){
             $original_filename = wp_basename($tmp);
             $filename = wp_unique_filename($upload_dir['path'], $original_filename);
             $file = trailingslashit($upload_dir['path']) . $filename;
-            $result = $this->move($tmp, $file);
+            $result = $this->copy($tmp, $file);
             if(is_wp_error($result)){
                 return $result;
             }
