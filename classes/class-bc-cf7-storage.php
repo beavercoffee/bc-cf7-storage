@@ -49,6 +49,7 @@ if(!class_exists('BC_CF7_Storage')){
             add_filter('bc_cf7_redirect_hidden_fields', [$this, 'bc_cf7_redirect_hidden_fields']);
             add_filter('do_shortcode_tag', [$this, 'do_shortcode_tag'], 10, 4);
             add_filter('shortcode_atts_wpcf7', [$this, 'shortcode_atts_wpcf7'], 10, 3);
+            add_filter('wpcf7_form_elements', 'do_shortcode');
             add_filter('wpcf7_form_hidden_fields', [$this, 'wpcf7_form_hidden_fields']);
             add_filter('wpcf7_verify_nonce', 'is_user_logged_in');
         }
@@ -209,6 +210,32 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        public function bc_cf7_storage_files($atts, $content = ''){
+            $atts = shortcode_atts([
+                'key' => '',
+            ], $atts, 'bc_cf7_storage_files');
+            $html = '';
+            $key = $atts['key'];
+            $post_id = get_the_ID();
+            if($post_id){
+                $files = get_post_meta($post_id, 'bc_' . $key . '_files', true);
+                if($files){
+                    $html = [];
+                    $files = wp_list_pluck($files, 'filename', 'id');
+                    foreach($files as $id => $filename){
+                        $html[] = '<a href="' . wp_get_attachment_url($id) . '" target="_blank">' . $filename . '</a>';
+                    }
+                    $html = (count($files) > 1 ? __('Media list') : __('Media')) . ': ' . implode(', ', $html);
+                }
+            }
+            if(!$html){
+                $html = __('No media items found.');
+            }
+            return $html;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
         public function do_shortcode_tag($output, $tag, $attr, $m){
 			if('contact-form-7' !== $tag){
                 return $output;
@@ -257,6 +284,7 @@ if(!class_exists('BC_CF7_Storage')){
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         public function init(){
+            add_shortcode('bc_cf7_storage_files', [$this, 'bc_cf7_storage_files']);
             register_post_type('bc_cf7_submission', [
                 'labels' => $this->post_type_labels('Submission', 'Submissions', false),
                 'show_in_admin_bar' => false,
