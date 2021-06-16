@@ -225,7 +225,7 @@ if(!class_exists('BC_CF7_Storage')){
                     foreach($files as $id => $filename){
                         $html[] = '<a href="' . wp_get_attachment_url($id) . '" target="_blank">' . $filename . '</a>';
                     }
-                    $html = (count($files) > 1 ? __('Media list') : __('Media')) . ': ' . implode(', ', $html);
+                    $html = __('Uploaded') . ': ' . implode(', ', $html);
                 }
             }
             if(!$html){
