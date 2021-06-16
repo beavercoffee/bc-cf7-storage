@@ -55,6 +55,39 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    	private function filesystem(){
+            global $wp_filesystem;
+            if($wp_filesystem instanceof WP_Filesystem_Direct){
+                return true;
+            }
+            if(!function_exists('get_filesystem_method')){
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
+            }
+            if('direct' !== get_filesystem_method()){
+                return new WP_Error('fs_unavailable', __('Could not access filesystem.'));
+            }
+            if(!WP_Filesystem()){
+                return new WP_Error('fs_error', __('Filesystem error.'));
+            }
+            return true;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    	private function move($source = '', $destination = '', $overwrite = false){
+            global $wp_filesystem;
+            $fs = $this->filesystem();
+            if(is_wp_error($fs)){
+                return $fs;
+            }
+            if(!$wp_filesystem->move($source, $destination, $overwrite)){
+                return new WP_Error('files_not_writable', sprintf(__('The uploaded file could not be moved to %s.'), $destination));
+            }
+            return $destination;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     	private function output($post_id, $attr, $content, $tag){
             global $post;
             $post = get_post($post_id);
@@ -118,6 +151,37 @@ if(!class_exists('BC_CF7_Storage')){
                 return 0;
             }
             return $post->ID;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    	private function upload($tmp = '', $post_id = 0){
+            global $wp_filesystem;
+            $upload_dir = wp_upload_dir();
+            $original_filename = wp_basename($tmp);
+            $filename = wp_unique_filename($upload_dir['path'], $original_filename);
+            $file = trailingslashit($upload_dir['path']) . $filename;
+            $result = $this->move($tmp, $file);
+            if(is_wp_error($result)){
+                return $result;
+            }
+            $filetype_and_ext = wp_check_filetype_and_ext($file, $filename);
+            if(!$filetype_and_ext['type']){
+                return new WP_Error('invalid_filetype', __('Sorry, this file type is not permitted for security reasons.'));
+            }
+            $attachment_id = wp_insert_attachment([
+                'guid' => str_replace($upload_dir['basedir'], $upload_dir['baseurl'], $file),
+                'post_mime_type' => $filetype_and_ext['type'],
+                'post_status' => 'inherit',
+                'post_title' => preg_replace('/\.[^.]+$/', '', $original_filename),
+            ], $file, $post_id, true);
+            if(is_wp_error($attachment_id)){
+                return $attachment_id;
+            }
+            $attachment = get_post($attachment_id);
+            wp_raise_memory_limit('image');
+            wp_maybe_generate_attachment_metadata($attachment);
+            return $attachment_id;
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -299,7 +363,22 @@ if(!class_exists('BC_CF7_Storage')){
 			}
             $uploaded_files = $submission->uploaded_files();
             if($uploaded_files){
-				// do something
+                foreach($uploaded_files as $key => $value){
+                    $files = [];
+                    foreach((array) $value as $single){
+                        $attachment_id = $this->upload($single, $post_id);
+                        if(is_wp_error($attachment_id)){
+                            $submission->set_response($attachment_id->get_error_message());
+                            $submission->set_status('aborted');
+                            return;
+                        }
+                        $files[] = [
+                            'filename' => wp_basename($single),
+                            'id' => $attachment_id,
+                        ];
+                    }
+                    update_post_meta($post_id, 'bc_' . $key . '_files', $files);
+                }
 			}
             if($update){
 				do_action('bc_cf7_insert_post', $post_id);
