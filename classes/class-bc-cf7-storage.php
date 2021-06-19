@@ -327,11 +327,10 @@ if(!class_exists('BC_CF7_Storage')){
                     }
                 }
                 $message = $contact_form->pref('bc_storage_message');
-                if(null !== $message){
-                    $hidden_fields['bc_storage_message'] = $message;
-                } else {
-                    $hidden_fields['bc_storage_message'] = $contact_form->message('mail_sent_ok');
+                if(null === $message){
+                    $message = $contact_form->message('mail_sent_ok');
                 }
+                $hidden_fields['bc_storage_message'] = $message;
             }
             $hidden_fields = apply_filters('bc_cf7_storage_hidden_fields', $hidden_fields);
             return $hidden_fields;
@@ -343,6 +342,10 @@ if(!class_exists('BC_CF7_Storage')){
             if($contact_form->is_true('do_not_store')){
                 return;
             }
+            $type = $contact_form->pref('bc_type');
+            if(null === $type){
+                return;
+            }
             $submission = WPCF7_Submission::get_instance();
             if(null === $submission){
                 return;
@@ -351,6 +354,22 @@ if(!class_exists('BC_CF7_Storage')){
             if(!$posted_data){
                 return;
             }
+            $meta_data = [
+                'bc_container_post_id' => $submission->get_meta('container_post_id'),
+                'bc_current_user_id' => $submission->get_meta('current_user_id'),
+                'bc_id' => $contact_form->id(),
+                'bc_locale' => $contact_form->locale(),
+                'bc_name' => $contact_form->name(),
+                'bc_remote_ip' => $submission->get_meta('remote_ip'),
+                'bc_remote_port' => $submission->get_meta('remote_port'),
+                'bc_response' => $submission->get_response(),
+                'bc_status' => $submission->get_status(),
+                'bc_timestamp' => $submission->get_meta('timestamp'),
+                'bc_title' => $contact_form->title(),
+                'bc_unit_tag' => $submission->get_meta('unit_tag'),
+                'bc_url' => $submission->get_meta('url'),
+                'bc_user_agent' => $submission->get_meta('user_agent'),
+            ];
             $post_id = $submission->get_posted_data('bc_post_id');
             $update = false;
 			if(null !== $post_id){
@@ -375,25 +394,9 @@ if(!class_exists('BC_CF7_Storage')){
                     $submission->set_status('aborted');
                     return;
                 }
-                $meta_data = [
-    				'bc_container_post_id' => $submission->get_meta('container_post_id'),
-    				'bc_current_user_id' => $submission->get_meta('current_user_id'),
-    				'bc_id' => $contact_form->id(),
-    				'bc_locale' => $contact_form->locale(),
-    				'bc_name' => $contact_form->name(),
-    				'bc_remote_ip' => $submission->get_meta('remote_ip'),
-    				'bc_remote_port' => $submission->get_meta('remote_port'),
-    				'bc_response' => $submission->get_response(),
-    				'bc_status' => $submission->get_status(),
-    				'bc_timestamp' => $submission->get_meta('timestamp'),
-    				'bc_title' => $contact_form->title(),
-    				'bc_unit_tag' => $submission->get_meta('unit_tag'),
-    				'bc_url' => $submission->get_meta('url'),
-    				'bc_user_agent' => $submission->get_meta('user_agent'),
-    			];
-                foreach($meta_data as $key => $value){
-    				add_post_meta($post_id, $key, $value);
-    			}
+            }
+            foreach($meta_data as $key => $value){
+                add_post_meta($post_id, $key, $value);
             }
             foreach($posted_data as $key => $value){
                 if(is_array($value)){
@@ -425,9 +428,9 @@ if(!class_exists('BC_CF7_Storage')){
                 }
 			}
             if($update){
-				do_action('bc_cf7_insert_post', $post_id);
+                do_action('bc_cf7_update_post', $post_id);
 			} else {
-				do_action('bc_cf7_update_post', $post_id);
+				do_action('bc_cf7_insert_post', $post_id);
 			}
         }
 
