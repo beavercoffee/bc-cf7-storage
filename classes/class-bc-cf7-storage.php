@@ -45,6 +45,7 @@ if(!class_exists('BC_CF7_Storage')){
     	private function __construct($file = ''){
             $this->file = $file;
             add_action('init', [$this, 'init']);
+            add_action('wpcf7_enqueue_scripts', [$this, 'wpcf7_enqueue_scripts']);
             add_action('wpcf7_mail_sent', [$this, 'wpcf7_mail_sent']);
             add_filter('bc_cf7_redirect_hidden_fields', [$this, 'bc_cf7_redirect_hidden_fields']);
             add_filter('do_shortcode_tag', [$this, 'do_shortcode_tag'], 10, 4);
@@ -305,6 +306,15 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+        public function wpcf7_enqueue_scripts(){
+            $src = plugin_dir_url($this->file) . 'assets/bc-cf7-storage.js';
+            $ver = filemtime(plugin_dir_path($this->file) . 'assets/bc-cf7-storage.js');
+            wp_enqueue_script('bc-cf7-storage', $src, ['contact-form-7'], $ver, true);
+            wp_add_inline_script('bc-cf7-storage', 'bc_cf7_storage.init();');
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
         public function wpcf7_form_hidden_fields($hidden_fields){
             $contact_form = wpcf7_get_current_contact_form();
             if($contact_form !== null){
@@ -315,6 +325,12 @@ if(!class_exists('BC_CF7_Storage')){
                         $hidden_fields['bc_nonce'] = wp_create_nonce('bc_edit_post-' . $post_id);
                         $hidden_fields['bc_post_id'] = $post_id;
                     }
+                }
+                $message = $contact_form->pref('bc_storage_message');
+                if(null !== $message){
+                    $hidden_fields['bc_storage_message'] = $message;
+                } else {
+                    $hidden_fields['bc_storage_message'] = $contact_form->message('mail_sent_ok');
                 }
             }
             $hidden_fields = apply_filters('bc_cf7_storage_hidden_fields', $hidden_fields);
