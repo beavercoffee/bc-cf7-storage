@@ -126,7 +126,7 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    	private function upload($tmp = '', $post_id = 0){
+    	private function upload_file($tmp = '', $post_id = 0){
             global $wp_filesystem;
             $upload_dir = wp_upload_dir();
             $original_filename = wp_basename($tmp);
@@ -163,7 +163,7 @@ if(!class_exists('BC_CF7_Storage')){
             if($uploaded_files){
                 foreach($uploaded_files as $key => $value){
                     foreach((array) $value as $single){
-                        $attachment_id = $this->upload($single, $post_id);
+                        $attachment_id = $this->upload_file($single, $post_id);
                         if(is_wp_error($attachment_id)){
                             return $attachment_id;
                         }
@@ -174,7 +174,7 @@ if(!class_exists('BC_CF7_Storage')){
                     }
                 }
             }
-            return $uploaded_files;
+            return $files;
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
