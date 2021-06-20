@@ -306,7 +306,7 @@ if(!class_exists('BC_CF7_Storage')){
             $user_id = apply_filters('bc_cf7_storage_user_id', 0, $contact_form);
             if($user_id){
                 foreach($meta_data as $key => $value){
-                    add_user_meta($user_id, $key, $value);
+                    update_user_meta($user_id, $key, $value);
                 }
                 foreach($posted_data as $key => $value){
                     if(is_array($value)){
@@ -344,7 +344,7 @@ if(!class_exists('BC_CF7_Storage')){
                     }
                 }
                 foreach($meta_data as $key => $value){
-                    add_post_meta($post_id, $key, $value);
+                    update_post_meta($post_id, $key, $value);
                 }
                 foreach($posted_data as $key => $value){
                     if(is_array($value)){
