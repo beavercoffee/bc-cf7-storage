@@ -276,7 +276,7 @@ if(!class_exists('BC_CF7_Storage')){
                 return;
             }
             $type = $contact_form->pref('bc_type');
-            if(null === $type){
+            if(null !== $type){
                 return;
             }
             $submission = WPCF7_Submission::get_instance();
