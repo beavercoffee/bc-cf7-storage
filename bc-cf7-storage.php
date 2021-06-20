@@ -17,5 +17,9 @@ Version: 1.6.19
 
 if(defined('ABSPATH')){
     require_once(plugin_dir_path(__FILE__) . 'classes/class-bc-cf7-storage.php');
+    require_once(plugin_dir_path(__FILE__) . 'classes/class-bc-cf7-update-post.php');
+    require_once(plugin_dir_path(__FILE__) . 'classes/class-bc-cf7-update-user.php');
     BC_CF7_Storage::get_instance(__FILE__);
+    BC_CF7_Update_Post::get_instance(__FILE__);
+    BC_CF7_Update_User::get_instance(__FILE__);
 }
