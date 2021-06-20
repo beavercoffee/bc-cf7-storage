@@ -12,7 +12,7 @@ Plugin URI: https://github.com/beavercoffee/bc-cf7-storage
 Requires at least: 5.7
 Requires PHP: 5.6
 Text Domain: bc-cf7-storage
-Version: 1.6.19
+Version: 1.6.20
 */
 
 if(defined('ABSPATH')){
