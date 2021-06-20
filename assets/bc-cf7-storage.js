@@ -17,7 +17,9 @@ if('undefined' === typeof(bc_cf7_storage)){
 			unit_tag = event.detail.unitTag;
             if(!jQuery('#' + unit_tag).find('input[name="bc_redirect"]').length){
                 if(jQuery('#' + unit_tag).find('input[name="bc_loading"]').length){
-                    jQuery('#' + unit_tag).find('.wpcf7-form').children().hide().end().prepend('<div class="alert alert-info bc-cf7-storage-alert" role="alert">' + jQuery('#' + unit_tag).find('input[name="bc_loading"]').val() + '</div>');
+                    jQuery('#' + unit_tag).find('.bc-submit-wrap').removeClass('d-flex').addClass('d-none');
+                    jQuery('#' + unit_tag).find('.wpcf7-form').children().hide();
+                    jQuery('#' + unit_tag).find('.wpcf7-form').prepend('<div class="alert alert-info bc-cf7-storage-alert" role="alert">' + jQuery('#' + unit_tag).find('input[name="bc_loading"]').val() + '</div>');
                 }
             }
         },
