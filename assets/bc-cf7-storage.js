@@ -6,7 +6,7 @@ if('undefined' === typeof(bc_cf7_storage)){
         init: function(){
             jQuery('.wpcf7-form').on({
                 wpcf7mailsent: bc_cf7_storage.wpcf7mailsent,
-                wpcf7reset: bc_cf7_redirect.wpcf7reset,
+                wpcf7reset: bc_cf7_storage.wpcf7reset,
 			});
         },
 
