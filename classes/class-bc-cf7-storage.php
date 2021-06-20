@@ -254,11 +254,16 @@ if(!class_exists('BC_CF7_Storage')){
         public function wpcf7_form_hidden_fields($hidden_fields){
             $contact_form = wpcf7_get_current_contact_form();
             if($contact_form !== null){
-                $message = $contact_form->pref('bc_storage_message');
-                if(null === $message){
-                    $message = $contact_form->message('mail_sent_ok');
+                $loading = $contact_form->pref('bc_loading');
+                if(null === $loading or '' === $loading){
+                    $loading = __('Loading&hellip;');
                 }
-                $hidden_fields['bc_storage_message'] = $message;
+                $hidden_fields['bc_loading'] = $loading;
+                $thank_you = $contact_form->pref('bc_thank_you');
+                if(null === $thank_you or '' === $thank_you){
+                    $thank_you = $contact_form->message('mail_sent_ok');
+                }
+                $hidden_fields['bc_thank_you'] = $thank_you;
             }
             $hidden_fields = apply_filters('bc_cf7_storage_hidden_fields', $hidden_fields);
             return $hidden_fields;
