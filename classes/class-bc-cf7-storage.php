@@ -47,9 +47,6 @@ if(!class_exists('BC_CF7_Storage')){
             add_action('init', [$this, 'init']);
             add_action('wpcf7_enqueue_scripts', [$this, 'wpcf7_enqueue_scripts']);
             add_action('wpcf7_mail_sent', [$this, 'wpcf7_mail_sent']);
-            add_filter('bc_cf7_redirect_hidden_fields', [$this, 'bc_cf7_redirect_hidden_fields']);
-            add_filter('do_shortcode_tag', [$this, 'do_shortcode_tag'], 10, 4);
-            add_filter('shortcode_atts_wpcf7', [$this, 'shortcode_atts_wpcf7'], 10, 3);
             add_filter('wpcf7_form_elements', 'do_shortcode');
             add_filter('wpcf7_form_hidden_fields', [$this, 'wpcf7_form_hidden_fields']);
             add_filter('wpcf7_verify_nonce', 'is_user_logged_in');
@@ -86,17 +83,6 @@ if(!class_exists('BC_CF7_Storage')){
                 return new WP_Error('fs_error', __('Filesystem error.'));
             }
             return true;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    	private function output($post_id, $attr, $content, $tag){
-            global $post;
-            $post = get_post($post_id);
-            setup_postdata($post);
-            $output = wpcf7_contact_form_tag_func($attr, $content, $tag);
-            wp_reset_postdata();
-            return $output;
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -140,23 +126,6 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    	private function sanitize_post_id($post_id){
-            $post = null;
-            if(is_numeric($post_id)){
-                $post = get_post($post_id);
-            } else {
-                if('current' === $post_id){
-                    $post = get_post();
-                }
-            }
-            if(null === $post){
-                return 0;
-            }
-            return $post->ID;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     	private function upload($tmp = '', $post_id = 0){
             global $wp_filesystem;
             $upload_dir = wp_upload_dir();
@@ -187,99 +156,75 @@ if(!class_exists('BC_CF7_Storage')){
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    	private function upload_files($submission = null, $post_id = 0){
+            $files = [];
+            $uploaded_files = $submission->uploaded_files();
+            if($uploaded_files){
+                foreach($uploaded_files as $key => $value){
+                    foreach((array) $value as $single){
+                        $attachment_id = $this->upload($single, $post_id);
+                        if(is_wp_error($attachment_id)){
+                            return $attachment_id;
+                        }
+                        $files[] = [
+                            'filename' => wp_basename($single),
+                            'id' => $attachment_id,
+                        ];
+                    }
+                }
+            }
+            return $uploaded_files;
+        }
+
+    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     	//
     	// public
     	//
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        public function bc_cf7_redirect_hidden_fields($hidden_fields){
-            $contact_form = wpcf7_get_current_contact_form();
-            if($contact_form !== null){
-                $post_id = $contact_form->shortcode_attr('bc_post_id');
-                if(null !== $post_id){
-                    $post_id = $this->sanitize_post_id($post_id);
-                    if(0 !== $post_id){
-                        $uniqid = get_post_meta($post_id, 'bc_uniqid', true);
-    					if($uniqid){
-    						$hidden_fields['bc_uniqid'] = $uniqid;
-    					}
-                    }
-                }
-            }
-            return $hidden_fields;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
         public function bc_cf7_storage_files($atts, $content = ''){
             $atts = shortcode_atts([
                 'key' => '',
+                'type' => 'post',
             ], $atts, 'bc_cf7_storage_files');
             $html = '';
             $key = $atts['key'];
-            $post_id = get_the_ID();
-            if($post_id){
-                $files = get_post_meta($post_id, 'bc_' . $key . '_files', true);
-                if($files){
-                    $html = [];
-                    $files = wp_list_pluck($files, 'filename', 'id');
-                    foreach($files as $id => $filename){
-                        $html[] = '<a href="' . wp_get_attachment_url($id) . '" target="_blank">' . $filename . '</a>';
+            $type = $atts['type'];
+            switch($type){
+                case 'post':
+                    $post_id = get_the_ID();
+                    if($post_id){
+                        $files = get_post_meta($post_id, 'bc_' . $key . '_files', true);
+                        if($files){
+                            $html = [];
+                            $files = wp_list_pluck($files, 'filename', 'id');
+                            foreach($files as $id => $filename){
+                                $html[] = '<a href="' . wp_get_attachment_url($id) . '" target="_blank">' . $filename . '</a>';
+                            }
+                            $html = __('Uploaded') . ': ' . implode(', ', $html);
+                        }
                     }
-                    $html = __('Uploaded') . ': ' . implode(', ', $html);
-                }
+                    break;
+                case 'user':
+                    $user_id = get_current_user_id();
+                    if($user_id){
+                        $files = get_user_meta($user_id, 'bc_' . $key . '_files', true);
+                        if($files){
+                            $html = [];
+                            $files = wp_list_pluck($files, 'filename', 'id');
+                            foreach($files as $id => $filename){
+                                $html[] = '<a href="' . wp_get_attachment_url($id) . '" target="_blank">' . $filename . '</a>';
+                            }
+                            $html = __('Uploaded') . ': ' . implode(', ', $html);
+                        }
+                    }
+                    break;
             }
             if(!$html){
                 $html = __('No media items found.');
             }
             return $html;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-        public function do_shortcode_tag($output, $tag, $attr, $m){
-			if('contact-form-7' !== $tag){
-                return $output;
-            }
-            $contact_form = wpcf7_get_current_contact_form();
-            if(null === $contact_form){
-                return $output;
-            }
-            $post_id = $contact_form->shortcode_attr('bc_post_id');
-            if(null === $post_id){
-                return $output;
-            }
-            $post_id = $this->sanitize_post_id($post_id);
-            if(0 === $post_id){
-                return '<div class="alert alert-danger" role="alert">' . __('Invalid post ID.') . '</div>';
-            }
-            if(!current_user_can('edit_post', $post_id)){
-                if('post' === get_post_type($post_id)){
-                    $message = __('Sorry, you are not allowed to edit this post.');
-                } else {
-                    $message = __('Sorry, you are not allowed to edit this item.');
-                }
-                $message .=  ' ' . __('You need a higher level of permission.');
-                return '<div class="alert alert-danger" role="alert">' . $message . '</div>';
-			} else {
-				if('trash' === get_post_status($post_id)){
-                    return '<div class="alert alert-danger" role="alert">' . __('You can&#8217;t edit this item because it is in the Trash. Please restore it and try again.') . '</div>';
-				}
-			}
-            if(isset($_GET['bc_referer'])){
-                if(get_post_meta($post_id, 'bc_uniqid', true) === $_GET['bc_referer']){
-                    $html_class = isset($attr['html_class']) ? trim($attr['html_class']) : '';
-                    if('' === $html_class){
-                        $html_class = 'bc_updated';
-                    } else {
-                        $html_class .= ' bc_updated';
-                    }
-                    $attr['html_class'] = $html_class;
-                }
-            }
-            $content = isset($m[5]) ? $m[5] : null;
-            $output = $this->output($post_id, $attr, $content, $tag);
-            return $output;
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -297,15 +242,6 @@ if(!class_exists('BC_CF7_Storage')){
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        public function shortcode_atts_wpcf7($out, $pairs, $atts){
-            if(isset($atts['bc_post_id'])){
-                $out['bc_post_id'] = $atts['bc_post_id'];
-            }
-            return $out;
-        }
-
-    	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
         public function wpcf7_enqueue_scripts(){
             $src = plugin_dir_url($this->file) . 'assets/bc-cf7-storage.js';
             $ver = filemtime(plugin_dir_path($this->file) . 'assets/bc-cf7-storage.js');
@@ -318,14 +254,6 @@ if(!class_exists('BC_CF7_Storage')){
         public function wpcf7_form_hidden_fields($hidden_fields){
             $contact_form = wpcf7_get_current_contact_form();
             if($contact_form !== null){
-                $post_id = $contact_form->shortcode_attr('bc_post_id');
-                if(null !== $post_id){
-                    $post_id = $this->sanitize_post_id($post_id);
-                    if(0 !== $post_id){
-                        $hidden_fields['bc_nonce'] = wp_create_nonce('bc_edit_post-' . $post_id);
-                        $hidden_fields['bc_post_id'] = $post_id;
-                    }
-                }
                 $message = $contact_form->pref('bc_storage_message');
                 if(null === $message){
                     $message = $contact_form->message('mail_sent_ok');
@@ -370,68 +298,72 @@ if(!class_exists('BC_CF7_Storage')){
                 'bc_url' => $submission->get_meta('url'),
                 'bc_user_agent' => $submission->get_meta('user_agent'),
             ];
-            $post_id = $submission->get_posted_data('bc_post_id');
-            $update = false;
-			if(null !== $post_id){
-                $nonce = $submission->get_posted_data('bc_nonce');
-                if(null === $nonce){
-                    $nonce = '';
+            $user_id = apply_filters('bc_cf7_storage_user_id', 0, $contact_form);
+            if($user_id){
+                foreach($meta_data as $key => $value){
+                    add_user_meta($user_id, $key, $value);
                 }
-                if(!wp_verify_nonce($nonce, 'bc_edit_post-' . $post_id)){
-    				$submission->set_response(__('Error while saving.'));
+                foreach($posted_data as $key => $value){
+                    if(is_array($value)){
+    					delete_user_meta($user_id, $key);
+    					foreach($value as $single){
+    						add_user_meta($user_id, $key, $single);
+    					}
+    				} else {
+    					update_user_meta($user_id, $key, $value);
+    				}
+    			}
+                $files = $this->upload_files($submission);
+                if(is_wp_error($files)){
+                    $submission->set_response($files->get_error_message());
                     $submission->set_status('aborted');
                     return;
                 }
-                $update = true;
+                update_user_meta($user_id, 'bc_' . $key . '_files', $files);
+                do_action('bc_cf7_update_user', $user_id);
             } else {
-                $post_id = wp_insert_post([
-					'post_status' => 'private',
-					'post_title' => sprintf('[contact-form-7 id="%1$d" title="%2$s"]', $contact_form->id(), $contact_form->title()),
-					'post_type' => 'bc_cf7_submission',
-				], true);
-                if(is_wp_error($post_id)){
-                    $submission->set_response($post_id->get_error_message());
+                $post_id = apply_filters('bc_cf7_storage_post_id', 0, $contact_form);
+                $update = false;
+    			if($post_id){
+                    $update = true;
+                } else {
+                    $post_id = wp_insert_post([
+    					'post_status' => 'private',
+    					'post_title' => sprintf('[contact-form-7 id="%1$d" title="%2$s"]', $contact_form->id(), $contact_form->title()),
+    					'post_type' => 'bc_cf7_submission',
+    				], true);
+                    if(is_wp_error($post_id)){
+                        $submission->set_response($post_id->get_error_message());
+                        $submission->set_status('aborted');
+                        return;
+                    }
+                }
+                foreach($meta_data as $key => $value){
+                    add_post_meta($post_id, $key, $value);
+                }
+                foreach($posted_data as $key => $value){
+                    if(is_array($value)){
+    					delete_post_meta($post_id, $key);
+    					foreach($value as $single){
+    						add_post_meta($post_id, $key, $single);
+    					}
+    				} else {
+    					update_post_meta($post_id, $key, $value);
+    				}
+    			}
+                $files = $this->upload_files($submission, $post_id);
+                if(is_wp_error($files)){
+                    $submission->set_response($files->get_error_message());
                     $submission->set_status('aborted');
                     return;
                 }
+                update_post_meta($post_id, 'bc_' . $key . '_files', $files);
+                if($update){
+                    do_action('bc_cf7_update_post', $post_id);
+    			} else {
+    				do_action('bc_cf7_insert_post', $post_id);
+    			}
             }
-            foreach($meta_data as $key => $value){
-                add_post_meta($post_id, $key, $value);
-            }
-            foreach($posted_data as $key => $value){
-                if(is_array($value)){
-					delete_post_meta($post_id, $key);
-					foreach($value as $single){
-						add_post_meta($post_id, $key, $single);
-					}
-				} else {
-					update_post_meta($post_id, $key, $value);
-				}
-			}
-            $uploaded_files = $submission->uploaded_files();
-            if($uploaded_files){
-                foreach($uploaded_files as $key => $value){
-                    $files = [];
-                    foreach((array) $value as $single){
-                        $attachment_id = $this->upload($single, $post_id);
-                        if(is_wp_error($attachment_id)){
-                            $submission->set_response($attachment_id->get_error_message());
-                            $submission->set_status('aborted');
-                            return;
-                        }
-                        $files[] = [
-                            'filename' => wp_basename($single),
-                            'id' => $attachment_id,
-                        ];
-                    }
-                    update_post_meta($post_id, 'bc_' . $key . '_files', $files);
-                }
-			}
-            if($update){
-                do_action('bc_cf7_update_post', $post_id);
-			} else {
-				do_action('bc_cf7_insert_post', $post_id);
-			}
         }
 
     	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
